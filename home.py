@@ -1,118 +1,134 @@
-import io
-from typing import Any
-
 import streamlit as st
-from PIL import Image
 import cv2
+import numpy as np
+from PIL import Image
+import joblib
+import time
 
-from ultralytics import YOLO
-from ultralytics.utils import LOGGER
-from ultralytics.utils.checks import check_requirements
-from ultralytics.utils.downloads import GITHUB_ASSETS_STEMS
+# Streamlit page config
+st.set_page_config(page_title="Face Recognition App", layout="wide")
 
+# Sidebar navigation
+st.sidebar.image('hcmute.png',width=100)
+st.sidebar.title("Navigation")
+page = st.sidebar.radio("Go to", ["Trang Chủ", "Nhận diện khuôn mặt"], key="page_nav")
 
-class Inference:
-    """
-    A class to perform object detection inference using Ultralytics YOLO.
-    """
-    def __init__(self, model: str = None):
-        check_requirements("streamlit>=1.29.0")
-        self.st = st
-        self.model_path = model
-        self.source = None
-        self.enable_trk = False
-        self.conf = 0.25
-        self.iou = 0.45
-        self.org_frame = None
-        self.ann_frame = None
-        self.vid_file_name = None
-        self.selected_ind = []
-        self.model = None
-        LOGGER.info(f"Ultralytics Solutions: ✅ model={self.model_path}")
+# Load models once and cache
+@st.cache_resource
+def load_models():
+    detector = cv2.FaceDetectorYN.create(
+        'face_detection_yunet_2023mar.onnx',
+        '',
+        (320, 320),  # preset input size
+        0.9,
+        0.3,
+        5000
+    )
+    recognizer = cv2.FaceRecognizerSF.create(
+        'face_recognition_sface_2021dec.onnx',
+        ''
+    )
+    svc = joblib.load('svc.pkl')
+    label_dict = {0: 'Alice', 1: 'Bob'}
+    return detector, recognizer, svc, label_dict
 
-    def web_ui(self):
-        menu_style = "<style>MainMenu {visibility: hidden;}</style>"
-        title = ("<h1 style='color:#FF64DA; text-align:center;'>"
-                 "Ultralytics YOLO Streamlit Application</h1>")
-        subtitle = ("<h4 style='color:#042AFF; text-align:center;'>"
-                    "Real-time object detection with Ultralytics YOLO! 🚀</h4>")
-        #self.st.set_page_config(page_title="YOLO App", layout="wide")
-        self.st.markdown(menu_style, unsafe_allow_html=True)
-        self.st.markdown(title, unsafe_allow_html=True)
-        self.st.markdown(subtitle, unsafe_allow_html=True)        
+# Initialize models
+detector, recognizer, svc, label_dict = load_models()
 
-    def detectobject(self):
-        self.st.title("Inference Settings")
-        self.source = self.st.selectbox("Video Source", ("webcam", "video"))
-        self.enable_trk = self.st.radio("Enable Tracking", ("Yes", "No"))
-        self.conf = float(self.st.slider("Confidence", 0.0, 1.0, self.conf, 0.01))
-        self.iou = float(self.st.slider("IoU", 0.0, 1.0, self.iou, 0.01))
-        if self.source == "video":
-            vid = self.st.file_uploader("Upload Video", type=["mp4","mov","avi","mkv"])
-            if vid:
-                with open("ultralytics.mp4","wb") as f: f.write(vid.read())
-                self.vid_file_name = "ultralytics.mp4"
-        else:
-            self.vid_file_name = 0
-        self.st.markdown("---")
-        self.st.subheader("Model & Classes")
-        models = [x.replace("yolo","YOLO") for x in GITHUB_ASSETS_STEMS if x.startswith("yolo11")]
-        if self.model_path: models.insert(0, self.model_path.split('.pt')[0])
-        sel = self.st.selectbox("Model", models)
-        with self.st.spinner("Loading model..."):
-            self.model = YOLO(f"{sel.lower()}.pt")
-        self.st.success("Model loaded")
-        names = list(self.model.names.values())
-        cls = self.st.multiselect("Classes", names, default=names[:3])
-        self.selected_ind = [names.index(c) for c in cls]
-        col1, col2 = self.st.columns(2)
-        self.org_frame = col1.empty()
-        self.ann_frame = col2.empty()
-        if not st.session_state.get("camera_on", False) and self.st.button("Start camera"):
-            st.session_state.camera_on = True
-        if self.st.button("Stop Camera"):
-            st.session_state.camera_on = False
-        # Inference loop
-        if st.session_state.get("camera_on", False):
-            cap = cv2.VideoCapture(self.vid_file_name)
-            if not cap.isOpened():
-                self.st.error("Cannot open source")
-                return
-            while st.session_state.camera_on:
+# Utility: draw annotations
+def annotate(frame, faces, names):
+    for box, name in zip(faces, names):
+        x, y, w, h = map(int, box[:4])
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        cv2.putText(
+            frame,
+            name,
+            (x, y - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            (0, 255, 0),
+            2
+        )
+    return frame
+
+# Recognition pipeline
+def recognize_frame(frame):
+    h, w = frame.shape[:2]
+    detector.setInputSize((w, h))
+    _, faces = detector.detect(frame)
+    if faces is None or len(faces) == 0:
+        return [], []
+    names = []
+    for f in faces:
+        aligned = recognizer.alignCrop(frame, f)
+        feat = recognizer.feature(aligned).reshape(1, -1)
+        pred = svc.predict(feat)[0]
+        names.append(label_dict.get(pred, "Unknown"))
+    return faces.tolist(), names
+
+# Trang Chủ page
+if page == "Trang Chủ":
+    st.title("Trang Chủ")
+    st.write("Welcome to the multi-page Face Recognition App.")
+    st.write("Use the sidebar to navigate to the Face Recognition page.")
+
+# Face Recognition page
+else:
+    st.title("Nhận diện khuôn mặt")
+    # Mode selection
+    mode = st.sidebar.radio("Input mode:", ["Image", "Video", "Webcam"], key="mode_radio")
+
+    if mode == "Image":
+        uploaded = st.file_uploader("Upload image", type=["jpg", "jpeg", "png"], key="img_uploader")
+        if uploaded:
+            # Read image and convert to BGR for OpenCV models
+            img = Image.open(uploaded).convert("RGB")
+            frame_rgb = np.array(img)
+            frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+
+            faces, names = recognize_frame(frame)
+            annotated = annotate(frame.copy(), faces, names)
+            # Convert back to RGB for display
+            annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+            st.image(annotated_rgb, use_column_width=True)
+
+    elif mode == "Video":
+        vid_file = st.file_uploader("Upload video", type=["mp4", "mov", "avi", "mkv"], key="vid_uploader")
+        play = st.sidebar.checkbox("Play video", key="play_video")
+        if vid_file and play:
+            tfile = "temp_video.mp4"
+            with open(tfile, "wb") as f:
+                f.write(vid_file.read())
+            cap = cv2.VideoCapture(tfile)
+            stframe = st.empty()
+            while play and cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
                     break
-                results = (
-                    self.model.track(frame, conf=self.conf, iou=self.iou, classes=self.selected_ind, persist=True)
-                    if self.enable_trk == "Yes" else
-                    self.model(frame, conf=self.conf, iou=self.iou, classes=self.selected_ind)
-                )
-                ann = results[0].plot()
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                self.org_frame.image(rgb, channels="RGB")
-                self.ann_frame.image(cv2.cvtColor(ann, cv2.COLOR_BGR2RGB), channels="RGB")
+                faces, names = recognize_frame(frame)
+                annotated = annotate(frame, faces, names)
+                # Convert BGR to RGB for display
+                annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+                stframe.image(annotated_rgb, use_column_width=True)
+                time.sleep(0.03)
             cap.release()
-        cv2.destroyAllWindows()
-        # Start/Stop buttons in sidebar
 
-# --- Main App ---
-# Page config and sidebar navigation
-#st.set_page_config(page_title="Streamlit Multi-Page YOLO App", layout="wide", initial_sidebar_state="expanded")
-# Logo in sidebar
-Image.open("default.png")
-st.sidebar.image("default.png", use_column_width=True)
-# Navigation
-if "page" not in st.session_state:
-    st.session_state.page = "Trang Chủ"
-st.sidebar.markdown("---")
-for p in ["Trang Chủ", "Nhận diện vật thể"]:
-    if st.sidebar.button(p):
-        st.session_state.page = p
-# Content
-if st.session_state.page == "Trang Chủ":
-    st.title("Trang Chủ")
-    st.write("Welcome to the multi-page app.")
-elif st.session_state.page == "Nhận diện vật thể":
-    st.title("Giới Thiệu & YOLO Inference")
-    inf = Inference()
-    inf.detectobject()
+    else:  # Webcam
+        run = st.sidebar.checkbox("Run Webcam", key="run_webcam")
+        frame_placeholder = st.empty()
+        if run:
+            cap = cv2.VideoCapture(0)
+            if not cap.isOpened():
+                st.error("Cannot access webcam.")
+            else:
+                while run:
+                    ret, frame = cap.read()
+                    if not ret:
+                        st.error("Failed to read from webcam.")
+                        break
+                    faces, names = recognize_frame(frame)
+                    annotated = annotate(frame, faces, names)
+                    annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+                    frame_placeholder.image(annotated_rgb, use_column_width=True)
+                    time.sleep(0.03)
+                cap.release()
