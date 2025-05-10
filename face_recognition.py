@@ -36,7 +36,7 @@ def recognize_frame(frame, detector, recognizer, svc, labels):
     return faces.tolist(), names
 
 def app():
-    st.title("😊 Nhận diện khuôn mặt từ ảnh/video/webcam")
+    st.title("😊 Nhận diện khuôn mặt")
     detector, recognizer, svc, labels = load_models()
     mode = st.sidebar.radio("Chế độ nhập", ["Ảnh", "Video", "Webcam"])
 
