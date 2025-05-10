@@ -51,7 +51,7 @@ if menu == "🏠 Trang Chủ":
 
     👨‍💻 **Thành viên thực hiện:**
     - **Lê Nhựt Anh** – MSSV: `22110279`
-    - **Nguyễn Sỹ Cường** – MSSV: `xxxxx`
+    - **Nguyễn Sỹ Cường** – MSSV: `22133007`
 
     ---  
     👉 Vui lòng chọn chức năng ở thanh bên trái để bắt đầu trải nghiệm!

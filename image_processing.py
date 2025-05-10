@@ -55,6 +55,7 @@ def app():
             'Negative': 'images/chapter3/1_Negative_Image.tif',
             'Negative Color': 'images/chapter3/2_Negative_Color.tif',
             'Logarit': 'images/chapter3/3_Logarit.tif',
+            'Power': 'images/chapter3/4_Gamma.tif',
             'PiecewiseLinear': 'images/chapter3/5_PiecewiseLinear.png',
             'Histogram': 'images/chapter3/6_Histogram.tif',
             'Hist Equal': 'images/chapter3/7_Histogram_Equal.png',
@@ -64,6 +65,7 @@ def app():
             'Smooth Box': 'images/chapter3/11_Smooth_box.tif',
             'Smooth Gauss': 'images/chapter3/12_Smooth_gauss.tif',
             'Median Filter': 'images/chapter3/13_Median_filter.tif',
+            'Create Impulse Noise': 'images/chapter3/3_Logarit.tif',
             'Sharp': 'images/chapter3/14_Sharpening.tif'
         },
         'Chương 4': {
@@ -79,6 +81,8 @@ def app():
             'Dilation': 'images/chapter9/2_Dilation.tif',
             'Boundary': 'images/chapter9/3_Boundary.tif',
             'Contour': 'images/chapter9/4_Contour.tif',
+            'Convex Hull': 'images/chapter9/4_Contour.tif',
+            'Defect Detect': 'images/chapter9/4_Contour.tif',
             'Connected Components': 'images/chapter9/5_Connected_Components.tif',
             'Remove Small Rice': 'images/chapter9/6_Remove_Small_Rice.tif'
         }
@@ -104,8 +108,19 @@ def app():
     img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
 
     # Thực hiện xử lý
-    if func in [c3.Negative_Color, c3.HistEqualColor, c9.Contour]:
+    if func in [c3.Negative_Color, c3.HistEqualColor]:
         out = func(img_cv)
+    elif func in [c9.Contour,c9.ConvexHull,c9.DefectDetect]:
+        gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+        out_gray = func(gray)
+
+        if out_gray.dtype != np.uint8:
+            out_gray = (out_gray * 255).clip(0,255).astype(np.uint8)
+
+        if out_gray.ndim == 3:
+            out_gray = cv2.cvtColor(out_gray, cv2.COLOR_BGR2GRAY)
+            
+        out = cv2.cvtColor(out_gray, cv2.COLOR_GRAY2BGR)
     else:
         gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
         out_gray = func(gray)
@@ -115,8 +130,8 @@ def app():
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Ảnh gốc")
-        st.image(img, use_container_width=True)
+        st.image(img,use_column_width=True)
 
     with col2:
         st.subheader("Kết quả")
-        st.image(cv2.cvtColor(out, cv2.COLOR_BGR2RGB), use_container_width=True)
+        st.image(cv2.cvtColor(out, cv2.COLOR_BGR2RGB),use_column_width=True)
