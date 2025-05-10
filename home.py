@@ -11,6 +11,7 @@ import face_recognition
 import fruit_detection
 import image_processing
 import garbage_detection
+import handwriting_recognition
 
 # ========== 1. CẤU HÌNH CHUNG ==========
 with st.sidebar:
@@ -25,6 +26,8 @@ menu = st.sidebar.radio("Chọn chức năng:", [
     "🍎 Nhận dạng trái cây", 
     "🖼️ Xử lý ảnh",
     "🗑️ Phân loại rác thải",
+    "✍️ Nhận diện chữ viết tay"
+
 ])
 
 # ========== 2. TRANG CHỦ ==========
@@ -71,3 +74,6 @@ elif menu == "😊 Nhận diện khuôn mặt":
 
 elif menu == "🗑️ Phân loại rác thải":
     garbage_detection.app()
+
+elif menu == "✍️ Nhận diện chữ viết tay":
+    handwriting_recognition.app()
