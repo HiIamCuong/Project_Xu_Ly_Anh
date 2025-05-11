@@ -98,7 +98,7 @@ def app():
     # UI
     st.title("🗑️ Phân loại rác thải")
 
-    img_file_buffer = st.file_uploader("📂 Chọn ảnh rác cần phân loại", type=["bmp", "png", "jpg", "jpeg", "tif", "gif"])
+    img_file_buffer = st.file_uploader("📂 Chọn ảnh rác cần phân loại", type=["bmp", "png", "jpg", "jpeg", "tif", "gif", "webp"])
     cols = st.columns(2)
 
     if img_file_buffer is not None:

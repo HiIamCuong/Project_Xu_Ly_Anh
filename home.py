@@ -11,7 +11,7 @@ import face_recognition
 import fruit_detection
 import image_processing
 import garbage_detection
-import handwriting_recognition
+import streamlit_emnist_predict
 
 # ========== 1. CẤU HÌNH CHUNG ==========
 with st.sidebar:
@@ -26,7 +26,7 @@ menu = st.sidebar.radio("Chọn chức năng:", [
     "🍎 Nhận dạng trái cây", 
     "🖼️ Xử lý ảnh",
     "🗑️ Phân loại rác thải",
-    "✍️ Nhận diện chữ viết tay"
+    "✍️ Nhận diện ký tự viết tay"
 
 ])
 
@@ -49,6 +49,9 @@ if menu == "🏠 Trang Chủ":
 
     - 🗑️ **Phân loại rác thải**  
       → Phân loại ảnh rác thành các nhóm **hữu cơ**, **tái chế** bằng mô hình YOLOv8 (ONNX).
+                
+    - ✍️ **Nhận diện ký tự viết tay**  
+    → Dựa trên mô hình CNN huấn luyện từ tập dữ liệu EMNIST, nhận diện **62 lớp ký tự** (0–9, A–Z, a–z).
 
     ---
 
@@ -75,5 +78,5 @@ elif menu == "😊 Nhận diện khuôn mặt":
 elif menu == "🗑️ Phân loại rác thải":
     garbage_detection.app()
 
-elif menu == "✍️ Nhận diện chữ viết tay":
-    handwriting_recognition.app()
+elif menu == "✍️ Nhận diện ký tự viết tay":
+    streamlit_emnist_predict.app()
